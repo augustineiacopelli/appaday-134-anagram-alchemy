@@ -1,0 +1,1352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Anagram Alchemy &#183; AppADay 134</title>
+<meta name="description" content="Enter a name or phrase, let Claude propose anagrams, then verify every candidate locally letter by letter and watch the survivors morph into place.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#0c0e13;
+  --ink-2:#12151d;
+  --panel:#171b25;
+  --panel-2:#1e2331;
+  --line:#2b3243;
+  --text:#eef1f7;
+  --muted:#99a2b4;
+  --gold:#d9ad55;
+  --gold-soft:#f0d79a;
+  --jade:#6fd3c1;
+  --danger:#e2786b;
+  --radius:14px;
+  --tap:44px;
+}
+*{box-sizing:border-box;}
+html{-webkit-text-size-adjust:100%;}
+body{
+  margin:0;
+  min-height:100dvh;
+  display:flex;
+  flex-direction:column;
+  background:
+    radial-gradient(120% 80% at 50% -10%, #1a2030 0%, rgba(26,32,48,0) 60%),
+    linear-gradient(180deg, var(--ink) 0%, var(--ink-2) 100%);
+  background-attachment:fixed;
+  color:var(--text);
+  font-family:Inter, "Helvetica Neue", Arial, sans-serif;
+  font-size:16px;
+  line-height:1.5;
+  overflow-x:hidden;
+}
+a{color:var(--gold-soft);}
+.bar{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:10px 14px;
+  border-bottom:1px solid var(--line);
+  background:rgba(12,14,19,.85);
+}
+.bar .num{
+  font-family:"Cormorant Garamond", Georgia, serif;
+  font-size:19px;
+  font-weight:700;
+  color:var(--gold);
+  letter-spacing:.06em;
+  min-width:38px;
+}
+.bar .name{
+  font-family:"Cormorant Garamond", Georgia, serif;
+  font-size:21px;
+  font-weight:700;
+  letter-spacing:.02em;
+  flex:1 1 auto;
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.bar .home{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-height:var(--tap);
+  min-width:var(--tap);
+  padding:0 12px;
+  border-radius:11px;
+  border:1px solid var(--line);
+  color:var(--muted);
+  text-decoration:none;
+  font-size:13px;
+  font-weight:500;
+}
+.bar .home:hover{color:var(--gold-soft);border-color:var(--gold);}
+.icon-btn{
+  min-height:var(--tap);
+  min-width:var(--tap);
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  background:transparent;
+  border:1px solid var(--line);
+  border-radius:11px;
+  color:var(--muted);
+  cursor:pointer;
+}
+.icon-btn:hover{color:var(--gold);border-color:var(--gold);}
+.icon-btn svg{width:20px;height:20px;display:block;}
+main{
+  flex:1 1 auto;
+  width:100%;
+  padding:18px 14px 40px;
+}
+.shell{width:100%;}
+.lede{
+  color:var(--muted);
+  font-size:14px;
+  margin:0 0 16px;
+}
+.field{
+  display:block;
+  font-size:12px;
+  letter-spacing:.14em;
+  text-transform:uppercase;
+  color:var(--muted);
+  margin:0 0 7px;
+}
+.input-row{display:flex;flex-direction:column;gap:10px;}
+input[type=text], input[type=password]{
+  width:100%;
+  min-height:var(--tap);
+  padding:11px 13px;
+  font-family:inherit;
+  font-size:16px;
+  color:var(--text);
+  background:var(--panel);
+  border:1px solid var(--line);
+  border-radius:var(--radius);
+}
+input[type=text]:focus, input[type=password]:focus{
+  outline:2px solid var(--gold);
+  outline-offset:1px;
+  border-color:var(--gold);
+}
+.btn{
+  min-height:var(--tap);
+  padding:11px 16px;
+  font-family:inherit;
+  font-size:15px;
+  font-weight:600;
+  color:var(--ink);
+  background:linear-gradient(180deg, var(--gold-soft), var(--gold));
+  border:none;
+  border-radius:var(--radius);
+  cursor:pointer;
+}
+.btn:disabled{opacity:.55;cursor:default;}
+.btn.ghost{
+  color:var(--text);
+  background:var(--panel-2);
+  border:1px solid var(--line);
+  font-weight:500;
+}
+.btn.ghost:hover{border-color:var(--gold);}
+.btn.danger{color:var(--danger);background:transparent;border:1px solid var(--line);font-weight:500;}
+.status{
+  margin:14px 0 0;
+  min-height:22px;
+  font-size:14px;
+  color:var(--jade);
+}
+.status.warn{color:var(--gold-soft);}
+.status.err{color:var(--danger);}
+.stage-wrap{
+  margin:18px 0 0;
+  padding:22px 12px;
+  border:1px solid var(--line);
+  border-radius:18px;
+  background:linear-gradient(180deg, rgba(30,35,49,.75), rgba(18,21,29,.75));
+}
+.stage{
+  display:flex;
+  flex-wrap:wrap;
+  justify-content:center;
+  align-items:center;
+  min-height:64px;
+  font-family:"Cormorant Garamond", Georgia, serif;
+  font-weight:700;
+  font-size:clamp(28px, 9vw, 54px);
+  line-height:1.15;
+}
+.stage .ltr{
+  display:inline-block;
+  position:relative;
+  will-change:transform;
+  color:var(--gold-soft);
+}
+.stage .gap{display:inline-block;white-space:pre;}
+.stage.idle .ltr{color:var(--muted);}
+h2{
+  font-family:"Cormorant Garamond", Georgia, serif;
+  font-size:22px;
+  font-weight:700;
+  letter-spacing:.02em;
+  margin:28px 0 10px;
+  padding-bottom:7px;
+  border-bottom:1px solid var(--line);
+  display:flex;
+  align-items:baseline;
+  gap:9px;
+}
+h2 .count{font-family:Inter,sans-serif;font-size:12px;font-weight:500;color:var(--muted);letter-spacing:.1em;}
+.list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:9px;}
+.row{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding:9px 10px;
+  background:var(--panel);
+  border:1px solid var(--line);
+  border-radius:var(--radius);
+}
+.row .phrase{
+  flex:1 1 auto;
+  min-width:0;
+  font-family:"Cormorant Garamond", Georgia, serif;
+  font-size:20px;
+  font-weight:600;
+  line-height:1.25;
+  overflow-wrap:anywhere;
+}
+.row .sub{display:block;font-family:Inter,sans-serif;font-size:11px;color:var(--muted);letter-spacing:.06em;}
+.mini{
+  min-height:var(--tap);
+  min-width:var(--tap);
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  flex:0 0 auto;
+  background:var(--panel-2);
+  border:1px solid var(--line);
+  border-radius:11px;
+  color:var(--muted);
+  cursor:pointer;
+  font-family:inherit;
+  font-size:13px;
+}
+.mini:hover{color:var(--gold);border-color:var(--gold);}
+.mini svg{width:19px;height:19px;display:block;}
+.mini[aria-pressed=true]{color:var(--gold);border-color:var(--gold);background:rgba(217,173,85,.12);}
+.empty{color:var(--muted);font-size:14px;margin:0;}
+.tools{display:flex;flex-wrap:wrap;gap:9px;margin-top:12px;}
+.hidden{display:none !important;}
+.modal{
+  position:absolute;
+  inset:0;
+  z-index:20;
+  display:flex;
+  align-items:flex-start;
+  justify-content:center;
+  padding:22px 14px 40px;
+  background:rgba(6,8,12,.82);
+}
+.modal .card{
+  width:100%;
+  background:var(--panel);
+  border:1px solid var(--line);
+  border-radius:18px;
+  padding:16px;
+}
+.modal h3{font-family:"Cormorant Garamond",Georgia,serif;font-size:22px;margin:0 0 4px;}
+.modal p{font-size:13px;color:var(--muted);margin:0 0 14px;}
+.modal label{display:block;margin-bottom:12px;}
+.vid-canvas{
+  width:100%;
+  height:auto;
+  display:block;
+  border-radius:14px;
+  border:1px solid var(--line);
+  background:var(--ink);
+}
+footer{
+  padding:16px 14px 26px;
+  border-top:1px solid var(--line);
+  color:var(--muted);
+  font-size:13px;
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  gap:8px 12px;
+}
+footer a{
+  display:inline-flex;
+  align-items:center;
+  min-height:var(--tap);
+  color:var(--gold-soft);
+}
+@media (min-width:720px){
+  main{padding:26px 22px 48px;}
+  .shell{max-width:none;margin:0;}
+  .input-row{flex-direction:row;align-items:flex-end;}
+  .input-row .grow{flex:1 1 auto;}
+  .modal .card{max-width:none;width:min(560px,100%);}
+}
+@media (prefers-reduced-motion: reduce){
+  .stage .ltr{transition:none !important;}
+}
+</style>
+</head>
+<body>
+
+<header class="bar">
+  <span class="num">134</span>
+  <span class="name">Anagram Alchemy</span>
+  <a class="home" href="https://augustineiacopelli.github.io/appaday/">AppADay</a>
+  <button type="button" class="icon-btn" id="gear" aria-label="Settings">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9v.09a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+  </button>
+</header>
+
+<main>
+  <div class="shell">
+    <p class="lede">Type a name or phrase. Claude proposes candidates, this page verifies every one of them letter by letter, and only perfect anagrams survive.</p>
+
+    <div class="input-row">
+      <div class="grow">
+        <label class="field" for="src">Source phrase</label>
+        <input type="text" id="src" autocomplete="off" autocapitalize="words" spellcheck="false" placeholder="Augustine Iacopelli">
+      </div>
+      <button type="button" class="btn" id="go">Transmute</button>
+    </div>
+
+    <p class="status" id="status" role="status" aria-live="polite"></p>
+
+    <div class="stage-wrap">
+      <div class="stage idle" id="stage" aria-hidden="true"></div>
+    </div>
+    <div class="tools">
+      <button type="button" class="btn ghost hidden" id="vidBtn">Record morph</button>
+    </div>
+
+    <h2>Verified <span class="count" id="resCount"></span></h2>
+    <ul class="list" id="results"></ul>
+    <p class="empty" id="resEmpty">Nothing forged yet.</p>
+
+    <h2>Favorites <span class="count" id="favCount"></span></h2>
+    <ul class="list" id="favs"></ul>
+    <p class="empty" id="favEmpty">No favorites saved.</p>
+    <div class="tools">
+      <button type="button" class="btn danger hidden" id="clearFavs">Clear favorites</button>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <span>AppADay 134 &#183; Category C</span>
+  <a href="https://augustineiacopelli.github.io/appaday/">Back to the portfolio</a>
+</footer>
+
+<div class="modal hidden" id="settings" role="dialog" aria-modal="true" aria-labelledby="setTitle">
+  <div class="card">
+    <h3 id="setTitle">Settings</h3>
+    <p>Your key stays in this browser only. It is never shown on the main screen and never leaves this device except in requests to Anthropic.</p>
+    <label>
+      <span class="field">Anthropic API key</span>
+      <input type="password" id="apiKey" autocomplete="off" spellcheck="false" placeholder="sk-ant-...">
+    </label>
+    <label>
+      <span class="field">Session name (optional)</span>
+      <input type="text" id="sessionName" autocomplete="off" placeholder="Shown on share cards">
+    </label>
+    <div class="tools">
+      <button type="button" class="btn" id="setSave">Save</button>
+      <button type="button" class="btn ghost" id="setClose">Close</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal hidden" id="vidModal" role="dialog" aria-modal="true" aria-labelledby="vidTitle">
+  <div class="card">
+    <h3 id="vidTitle">Morph recording</h3>
+    <p id="vidNote">Recording about three seconds of the letter morph.</p>
+    <canvas class="vid-canvas" id="vidCanvas" width="720" height="720"></canvas>
+    <div class="tools">
+      <button type="button" class="btn ghost" id="vidClose">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  'use strict';
+
+  var CLAUDE_MODEL = 'claude-sonnet-5';
+  var API_URL = 'https://api.anthropic.com/v1/messages';
+  var MAX_TOKENS = 1200;
+
+  var K_SETTINGS = 'appaday-134-settings';
+  var K_FAVS = 'appaday-134-favorites';
+  var K_LAST = 'appaday-134-last';
+
+  var ARROW = '\u2192';
+  var NBSP = '\u00a0';
+  var CARD_URL = 'augustineiacopelli.github.io/appaday';
+  var SERIF = '"Cormorant Garamond", Georgia, serif';
+
+  /* ---------- storage helpers ---------- */
+
+  function readJSON(key, fallback){
+    try{
+      var raw = localStorage.getItem(key);
+      if(!raw){ return fallback; }
+      var val = JSON.parse(raw);
+      return (val === null || val === undefined) ? fallback : val;
+    }catch(e){ return fallback; }
+  }
+  function writeJSON(key, val){
+    try{ localStorage.setItem(key, JSON.stringify(val)); return true; }
+    catch(e){ return false; }
+  }
+  function readText(key, fallback){
+    try{
+      var raw = localStorage.getItem(key);
+      return (raw === null || raw === undefined) ? fallback : raw;
+    }catch(e){ return fallback; }
+  }
+  function writeText(key, val){
+    try{ localStorage.setItem(key, String(val)); return true; }
+    catch(e){ return false; }
+  }
+
+  function loadSettings(){
+    var s = readJSON(K_SETTINGS, {});
+    if(!s || typeof s !== 'object'){ s = {}; }
+    return { apiKey: typeof s.apiKey === 'string' ? s.apiKey : '',
+             sessionName: typeof s.sessionName === 'string' ? s.sessionName : '' };
+  }
+  function saveSettings(s){ return writeJSON(K_SETTINGS, s); }
+
+  function loadFavs(){
+    var a = readJSON(K_FAVS, []);
+    return Array.isArray(a) ? a : [];
+  }
+  function saveFavs(a){ return writeJSON(K_FAVS, a); }
+
+  /* ---------- verifier ---------- */
+
+  function normalize(s){
+    return String(s === null || s === undefined ? '' : s).toLowerCase().replace(/[^a-z]/g, '');
+  }
+  function vector(s){
+    var v = [], i;
+    for(i = 0; i < 26; i++){ v.push(0); }
+    var n = normalize(s);
+    for(i = 0; i < n.length; i++){
+      var idx = n.charCodeAt(i) - 97;
+      if(idx >= 0 && idx < 26){ v[idx]++; }
+    }
+    return v;
+  }
+  function sameVector(a, b){
+    for(var i = 0; i < 26; i++){
+      if(a[i] !== b[i]){ return false; }
+    }
+    return true;
+  }
+  function isAscii(s){
+    for(var i = 0; i < s.length; i++){
+      if(s.charCodeAt(i) > 127){ return false; }
+    }
+    return true;
+  }
+
+  function verifyBatch(source, candidates, alreadyAccepted){
+    var sv = vector(source);
+    var sn = normalize(source);
+    var seen = {};
+    var i;
+    if(alreadyAccepted){
+      for(i = 0; i < alreadyAccepted.length; i++){ seen[normalize(alreadyAccepted[i])] = true; }
+    }
+    var accepted = [], failures = [];
+    for(i = 0; i < candidates.length; i++){
+      var raw = candidates[i];
+      if(typeof raw !== 'string'){ failures.push({ phrase: String(raw), reason: 'not-a-string' }); continue; }
+      var p = raw.replace(/\s+/g, ' ').trim();
+      if(!p){ failures.push({ phrase: raw, reason: 'empty' }); continue; }
+      if(!isAscii(p)){ failures.push({ phrase: p, reason: 'non-ascii' }); continue; }
+      var n = normalize(p);
+      if(!n){ failures.push({ phrase: p, reason: 'no-letters' }); continue; }
+      if(n === sn){ failures.push({ phrase: p, reason: 'same-as-source' }); continue; }
+      if(seen[n]){ failures.push({ phrase: p, reason: 'duplicate' }); continue; }
+      if(!sameVector(vector(p), sv)){ failures.push({ phrase: p, reason: 'letter-mismatch' }); continue; }
+      seen[n] = true;
+      accepted.push(p);
+    }
+    return { accepted: accepted, failures: failures };
+  }
+
+  function selfTest(){
+    var cases = [
+      { src: 'Dormitory', cand: 'Dirty Room', want: true },
+      { src: 'Listen', cand: 'Silent', want: true },
+      { src: 'Listen', cand: 'Enlist!', want: true },
+      { src: 'The eyes', cand: 'They see', want: true },
+      { src: 'Clint Eastwood', cand: 'Old West Action', want: true },
+      { src: 'Listen', cand: 'Silence', want: false },
+      { src: 'Listen', cand: 'Silen', want: false },
+      { src: 'Listen', cand: 'listen', want: false },
+      { src: 'Listen', cand: 'Sile\u00f1t', want: false },
+      { src: 'Listen', cand: '', want: false },
+      { src: 'Listen', cand: '1234', want: false }
+    ];
+    var passed = 0, failed = [];
+    for(var i = 0; i < cases.length; i++){
+      var r = verifyBatch(cases[i].src, [cases[i].cand], []);
+      var got = r.accepted.length === 1;
+      if(got === cases[i].want){ passed++; }
+      else { failed.push(cases[i].cand + ' expected ' + cases[i].want); }
+    }
+    var dup = verifyBatch('Listen', ['Silent', 'SILENT'], []);
+    if(dup.accepted.length === 1 && dup.failures.length === 1 && dup.failures[0].reason === 'duplicate'){ passed++; }
+    else { failed.push('duplicate guard'); }
+    var prior = verifyBatch('Listen', ['Tinsel'], ['Tinsel']);
+    if(prior.accepted.length === 0){ passed++; }
+    else { failed.push('prior-accepted guard'); }
+    if(window.console && console.log){
+      console.log('[134] verifier self test: ' + passed + '/' + (cases.length + 2) + ' passed' +
+        (failed.length ? ' | failures: ' + failed.join('; ') : ''));
+    }
+    return failed.length === 0;
+  }
+
+  /* ---------- dom helpers ---------- */
+
+  function $(id){ return document.getElementById(id); }
+  function clearNode(node){
+    while(node.firstChild){ node.removeChild(node.firstChild); }
+  }
+  function show(el){ el.classList.remove('hidden'); }
+  function hide(el){ el.classList.add('hidden'); }
+  function isLetter(ch){ return ch >= 'a' && ch <= 'z' || ch >= 'A' && ch <= 'Z'; }
+  function reducedMotion(){
+    try{ return window.matchMedia('(prefers-reduced-motion: reduce)').matches; }
+    catch(e){ return false; }
+  }
+
+  var statusEl = $('status');
+  function setStatus(msg, kind){
+    statusEl.textContent = msg || '';
+    statusEl.className = 'status' + (kind ? ' ' + kind : '');
+  }
+
+  /* ---------- stage and FLIP morph ---------- */
+
+  var stage = $('stage');
+  var stageLetters = [];
+  var stageText = '';
+  var morphing = false;
+
+  function makeSpacer(ch){
+    var sp = document.createElement('span');
+    sp.className = 'gap';
+    sp.textContent = (ch === ' ') ? NBSP : ch;
+    return sp;
+  }
+  function makeLetter(ch){
+    var sp = document.createElement('span');
+    sp.className = 'ltr';
+    sp.textContent = ch;
+    return sp;
+  }
+
+  function renderStage(text){
+    clearNode(stage);
+    stageLetters = [];
+    for(var i = 0; i < text.length; i++){
+      var ch = text.charAt(i);
+      if(isLetter(ch)){
+        var sp = makeLetter(ch);
+        stage.appendChild(sp);
+        stageLetters.push(sp);
+      } else {
+        stage.appendChild(makeSpacer(ch));
+      }
+    }
+    stageText = text;
+  }
+
+  function buildMapping(targetText){
+    var buckets = {}, i;
+    for(i = 0; i < stageLetters.length; i++){
+      var c = stageLetters[i].textContent.toLowerCase();
+      if(!buckets[c]){ buckets[c] = []; }
+      buckets[c].push(i);
+    }
+    var order = [], seq = [];
+    for(i = 0; i < targetText.length; i++){
+      var ch = targetText.charAt(i);
+      if(isLetter(ch)){
+        var list = buckets[ch.toLowerCase()];
+        if(!list || !list.length){ return null; }
+        var srcIndex = list.shift();
+        var el = stageLetters[srcIndex];
+        order.push(el);
+        seq.push({ type: 'letter', el: el, ch: ch });
+      } else {
+        seq.push({ type: 'spacer', ch: ch });
+      }
+    }
+    return { order: order, seq: seq };
+  }
+
+  function writeArrangement(map, targetText){
+    clearNode(stage);
+    for(var i = 0; i < map.seq.length; i++){
+      var item = map.seq[i];
+      if(item.type === 'letter'){
+        item.el.textContent = item.ch;
+        item.el.style.transition = '';
+        item.el.style.transform = '';
+        stage.appendChild(item.el);
+      } else {
+        stage.appendChild(makeSpacer(item.ch));
+      }
+    }
+    stageLetters = map.order.slice();
+    stageText = targetText;
+    stage.classList.remove('idle');
+  }
+
+  function morphTo(targetText){
+    if(morphing){ return; }
+    if(normalize(targetText) === normalize(stageText) && targetText === stageText){ return; }
+    var map = buildMapping(targetText);
+    if(!map){ setStatus('That phrase does not match the letters on the stage.', 'warn'); return; }
+
+    if(reducedMotion()){
+      writeArrangement(map, targetText);
+      return;
+    }
+
+    morphing = true;
+    var i, el;
+    var first = [];
+    for(i = 0; i < map.order.length; i++){ first.push(map.order[i].getBoundingClientRect()); }
+
+    writeArrangement(map, targetText);
+
+    var last = [];
+    for(i = 0; i < map.order.length; i++){ last.push(map.order[i].getBoundingClientRect()); }
+    for(i = 0; i < map.order.length; i++){
+      el = map.order[i];
+      var dx = first[i].left - last[i].left;
+      var dy = first[i].top - last[i].top;
+      el.style.transition = 'none';
+      el.style.transform = 'translate(' + dx + 'px,' + dy + 'px)';
+    }
+
+    var reflow = stage.offsetWidth;
+    if(reflow < 0){ morphing = false; return; }
+
+    requestAnimationFrame(function(){
+      var lastEl = null, k;
+      for(k = 0; k < map.order.length; k++){
+        var node = map.order[k];
+        node.style.transition = 'transform 540ms cubic-bezier(.22,.9,.24,1) ' + (k * 18) + 'ms';
+        node.style.transform = 'translate(0px,0px)';
+        lastEl = node;
+      }
+      if(!lastEl){ morphing = false; return; }
+      var done = false;
+      var finish = function(){
+        if(done){ return; }
+        done = true;
+        for(var m = 0; m < map.order.length; m++){
+          map.order[m].style.transition = '';
+          map.order[m].style.transform = '';
+        }
+        morphing = false;
+      };
+      lastEl.addEventListener('transitionend', finish, { once: true });
+      setTimeout(finish, 540 + map.order.length * 18 + 400);
+    });
+  }
+
+  /* ---------- claude ---------- */
+
+  function inventoryText(v){
+    var parts = [];
+    for(var i = 0; i < 26; i++){
+      if(v[i] > 0){ parts.push(String.fromCharCode(97 + i) + ' x' + v[i]); }
+    }
+    return parts.join(', ');
+  }
+
+  function firstPrompt(source){
+    var v = vector(source);
+    var total = normalize(source).length;
+    return 'Source phrase: "' + source + '"\n' +
+      'Exact letter inventory, ignoring case, spaces and punctuation: ' + inventoryText(v) + '\n' +
+      'Total letters: ' + total + '\n\n' +
+      'Produce about 12 meaningful English phrases that are perfect anagrams of the source phrase. ' +
+      'Every phrase must use each letter above exactly the stated number of times, no more and no fewer, ' +
+      'and must use no letters outside that inventory. Spaces, hyphens and punctuation are free and do not count. ' +
+      'Do not return the source phrase itself. Favor phrases that read as real English and carry some meaning.\n\n' +
+      'Return only a bare JSON array of strings. No prose, no numbering, no code fences.';
+  }
+
+  function topUpPrompt(source, accepted, rejected){
+    var v = vector(source);
+    var lines = '';
+    var i;
+    if(accepted.length){
+      lines += '\nAlready accepted, do not repeat these:\n';
+      for(i = 0; i < accepted.length; i++){ lines += '- ' + accepted[i] + '\n'; }
+    }
+    if(rejected.length){
+      lines += '\nRejected candidates, each failed the exact letter check, do not repeat these mistakes:\n';
+      for(i = 0; i < rejected.length && i < 8; i++){ lines += '- ' + rejected[i] + '\n'; }
+    }
+    return 'Source phrase: "' + source + '"\n' +
+      'Exact letter inventory, ignoring case, spaces and punctuation: ' + inventoryText(v) + '\n' +
+      'Total letters: ' + normalize(source).length + '\n' + lines + '\n' +
+      'Produce about 12 more meaningful English phrases that are perfect anagrams of the source phrase, ' +
+      'using each letter exactly the stated number of times. Count the letters carefully before answering.\n\n' +
+      'Return only a bare JSON array of strings. No prose, no numbering, no code fences.';
+  }
+
+  function extractText(data){
+    var out = [];
+    if(data && Object.prototype.toString.call(data.content) === '[object Array]'){
+      for(var i = 0; i < data.content.length; i++){
+        var block = data.content[i];
+        if(block && block.type === 'text' && typeof block.text === 'string'){ out.push(block.text); }
+      }
+    }
+    return out.join('\n');
+  }
+
+  function parseList(text){
+    var cleaned = String(text || '').replace(/```[a-zA-Z]*/g, '').replace(/```/g, '').trim();
+    var open = cleaned.indexOf('[');
+    var close = cleaned.lastIndexOf(']');
+    if(open !== -1 && close > open){
+      var slice = cleaned.substring(open, close + 1);
+      try{
+        var parsed = JSON.parse(slice);
+        if(Object.prototype.toString.call(parsed) === '[object Array]'){ return parsed; }
+      }catch(e){ /* fall through to line parsing */ }
+    }
+    var lines = cleaned.split('\n');
+    var out = [];
+    for(var i = 0; i < lines.length; i++){
+      var line = lines[i].trim();
+      line = line.replace(/^[\[\]]+/, '').replace(/[\[\]]+$/, '');
+      line = line.replace(/^\s*[-*]\s*/, '').replace(/^\s*\d+[.)]\s*/, '');
+      line = line.replace(/,\s*$/, '').trim();
+      line = line.replace(/^"+/, '').replace(/"+$/, '').trim();
+      line = line.replace(/^'+/, '').replace(/'+$/, '').trim();
+      if(line){ out.push(line); }
+    }
+    return out;
+  }
+
+  function askClaude(promptText){
+    var s = loadSettings();
+    if(!s.apiKey){ return Promise.reject(new Error('Add your Anthropic API key in Settings first.')); }
+    return fetch(API_URL, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-api-key': s.apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: CLAUDE_MODEL,
+        max_tokens: MAX_TOKENS,
+        messages: [{ role: 'user', content: promptText }]
+      })
+    }).then(function(res){
+      if(!res.ok){
+        return res.text().then(function(body){
+          throw new Error('Request failed (' + res.status + '). ' + String(body).slice(0, 160));
+        });
+      }
+      return res.json();
+    }).then(function(data){
+      return parseList(extractText(data));
+    });
+  }
+
+  /* ---------- results and favorites ---------- */
+
+  var resultsEl = $('results');
+  var resEmpty = $('resEmpty');
+  var resCount = $('resCount');
+  var favsEl = $('favs');
+  var favEmpty = $('favEmpty');
+  var favCount = $('favCount');
+  var clearBtn = $('clearFavs');
+
+  var currentSource = '';
+  var survivors = [];
+
+  var HEART = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1.1 1L12 21l7.7-7.6 1.1-1a5.5 5.5 0 0 0 0-7.8z"></path></svg>';
+  var SHARE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"></path><path d="M12 16V3"></path><path d="M7 8l5-5 5 5"></path></svg>';
+
+  function isFav(source, result){
+    var favs = loadFavs();
+    for(var i = 0; i < favs.length; i++){
+      if(favs[i] && normalize(favs[i].source) === normalize(source) && favs[i].result === result){ return true; }
+    }
+    return false;
+  }
+  function toggleFav(source, result){
+    var favs = loadFavs();
+    var out = [], removed = false;
+    for(var i = 0; i < favs.length; i++){
+      var f = favs[i];
+      if(f && normalize(f.source) === normalize(source) && f.result === result){ removed = true; continue; }
+      out.push(f);
+    }
+    if(!removed){ out.unshift({ source: source, result: result, ts: Date.now() }); }
+    saveFavs(out);
+    renderFavs();
+    return !removed;
+  }
+
+  function buildRow(source, result, opts){
+    var li = document.createElement('li');
+    li.className = 'row';
+
+    var span = document.createElement('span');
+    span.className = 'phrase';
+    span.textContent = result;
+    if(opts && opts.showSource){
+      var sub = document.createElement('span');
+      sub.className = 'sub';
+      sub.textContent = 'from ' + source;
+      span.appendChild(sub);
+    }
+    li.appendChild(span);
+
+    var morphBtn = document.createElement('button');
+    morphBtn.type = 'button';
+    morphBtn.className = 'mini';
+    morphBtn.textContent = 'Morph';
+    morphBtn.setAttribute('aria-label', 'Morph the stage into ' + result);
+    morphBtn.addEventListener('click', function(){
+      if(normalize(source) !== normalize(stageText)){ renderStage(source); }
+      stage.classList.remove('idle');
+      currentSource = source;
+      morphTo(result);
+      setStatus(ARROW + ' ' + result, '');
+    });
+    li.appendChild(morphBtn);
+
+    var favBtn = document.createElement('button');
+    favBtn.type = 'button';
+    favBtn.className = 'mini';
+    favBtn.innerHTML = HEART;
+    favBtn.setAttribute('aria-label', 'Favorite ' + result);
+    favBtn.setAttribute('aria-pressed', isFav(source, result) ? 'true' : 'false');
+    favBtn.addEventListener('click', function(){
+      var nowOn = toggleFav(source, result);
+      favBtn.setAttribute('aria-pressed', nowOn ? 'true' : 'false');
+      syncResultPressedStates();
+    });
+    li.appendChild(favBtn);
+
+    var shareBtn = document.createElement('button');
+    shareBtn.type = 'button';
+    shareBtn.className = 'mini';
+    shareBtn.innerHTML = SHARE;
+    shareBtn.setAttribute('aria-label', 'Share card for ' + result);
+    shareBtn.addEventListener('click', function(){ shareCard(source, result); });
+    li.appendChild(shareBtn);
+
+    return li;
+  }
+
+  function syncResultPressedStates(){
+    var nodes = resultsEl.querySelectorAll('button[aria-pressed]');
+    for(var i = 0; i < nodes.length; i++){
+      var label = nodes[i].getAttribute('aria-label') || '';
+      var phrase = label.replace(/^Favorite /, '');
+      nodes[i].setAttribute('aria-pressed', isFav(currentSource, phrase) ? 'true' : 'false');
+    }
+  }
+
+  function renderResults(){
+    clearNode(resultsEl);
+    for(var i = 0; i < survivors.length; i++){
+      resultsEl.appendChild(buildRow(currentSource, survivors[i], { showSource: false }));
+    }
+    resCount.textContent = survivors.length ? String(survivors.length) : '';
+    if(survivors.length){ hide(resEmpty); } else { show(resEmpty); }
+    if(survivors.length && webmSupported()){ show($('vidBtn')); } else { hide($('vidBtn')); }
+  }
+
+  function renderFavs(){
+    var favs = loadFavs();
+    clearNode(favsEl);
+    for(var i = 0; i < favs.length; i++){
+      var f = favs[i];
+      if(!f || typeof f.result !== 'string'){ continue; }
+      favsEl.appendChild(buildRow(f.source || '', f.result, { showSource: true }));
+    }
+    favCount.textContent = favs.length ? String(favs.length) : '';
+    if(favs.length){ hide(favEmpty); show(clearBtn); } else { show(favEmpty); hide(clearBtn); }
+  }
+
+  /* ---------- share card ---------- */
+
+  function roundPath(ctx, x, y, w, h, r){
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.arcTo(x + w, y, x + w, y + r, r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
+    ctx.lineTo(x + r, y + h);
+    ctx.arcTo(x, y + h, x, y + h - r, r);
+    ctx.lineTo(x, y + r);
+    ctx.arcTo(x, y, x + r, y, r);
+    ctx.closePath();
+  }
+
+  function wrapWords(ctx, text, maxWidth){
+    var words = text.split(' ');
+    var lines = [], line = '';
+    for(var i = 0; i < words.length; i++){
+      var test = line ? (line + ' ' + words[i]) : words[i];
+      if(ctx.measureText(test).width <= maxWidth || !line){ line = test; }
+      else { lines.push(line); line = words[i]; }
+    }
+    if(line){ lines.push(line); }
+    return lines;
+  }
+
+  function fitHero(ctx, text, maxWidth, maxLines){
+    var size, lines, widest, i;
+    for(size = 118; size >= 40; size -= 3){
+      ctx.font = '700 ' + size + 'px ' + SERIF;
+      lines = wrapWords(ctx, text, maxWidth);
+      widest = 0;
+      for(i = 0; i < lines.length; i++){ widest = Math.max(widest, ctx.measureText(lines[i]).width); }
+      if(lines.length <= maxLines && widest <= maxWidth){ return { size: size, lines: lines }; }
+    }
+    ctx.font = '700 40px ' + SERIF;
+    lines = wrapWords(ctx, text, maxWidth).slice(0, maxLines);
+    return { size: 40, lines: lines };
+  }
+
+  function drawCard(source, result){
+    var SIZE = 1080;
+    var scale = Math.min(2, Math.max(1, window.devicePixelRatio || 1));
+    var canvas = document.createElement('canvas');
+    canvas.width = SIZE * scale;
+    canvas.height = SIZE * scale;
+    var ctx = canvas.getContext('2d');
+    ctx.scale(scale, scale);
+
+    var bg = ctx.createLinearGradient(0, 0, SIZE, SIZE);
+    bg.addColorStop(0, '#161b27');
+    bg.addColorStop(0.55, '#0e1117');
+    bg.addColorStop(1, '#0a0c11');
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, SIZE, SIZE);
+
+    var glow = ctx.createRadialGradient(SIZE / 2, 330, 40, SIZE / 2, 330, 620);
+    glow.addColorStop(0, 'rgba(217,173,85,.16)');
+    glow.addColorStop(1, 'rgba(217,173,85,0)');
+    ctx.fillStyle = glow;
+    ctx.fillRect(0, 0, SIZE, SIZE);
+
+    ctx.strokeStyle = 'rgba(217,173,85,.42)';
+    ctx.lineWidth = 3;
+    roundPath(ctx, 46, 46, SIZE - 92, SIZE - 92, 40);
+    ctx.stroke();
+
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'alphabetic';
+
+    ctx.fillStyle = '#99a2b4';
+    ctx.font = '600 26px Inter, Helvetica, Arial, sans-serif';
+    ctx.fillText('ANAGRAM ALCHEMY', SIZE / 2, 150);
+
+    ctx.fillStyle = '#c9d1e0';
+    ctx.font = '600 44px ' + SERIF;
+    var srcLines = wrapWords(ctx, source, SIZE - 260).slice(0, 2);
+    var y = 300;
+    for(var i = 0; i < srcLines.length; i++){
+      ctx.fillText(srcLines[i], SIZE / 2, y);
+      y += 54;
+    }
+
+    ctx.fillStyle = '#d9ad55';
+    ctx.font = '400 62px Inter, Helvetica, Arial, sans-serif';
+    ctx.fillText(ARROW, SIZE / 2, y + 62);
+
+    var hero = fitHero(ctx, result, SIZE - 190, 3);
+    ctx.font = '700 ' + hero.size + 'px ' + SERIF;
+    ctx.fillStyle = '#f0d79a';
+    var heroTop = y + 190;
+    for(i = 0; i < hero.lines.length; i++){
+      ctx.fillText(hero.lines[i], SIZE / 2, heroTop + i * (hero.size * 1.12));
+    }
+
+    var settings = loadSettings();
+    var footY = SIZE - 128;
+    if(settings.sessionName){
+      ctx.fillStyle = '#99a2b4';
+      ctx.font = '500 28px Inter, Helvetica, Arial, sans-serif';
+      ctx.fillText(settings.sessionName.slice(0, 48), SIZE / 2, footY);
+      footY += 46;
+    }
+    ctx.fillStyle = '#7f8899';
+    ctx.font = '500 26px Inter, Helvetica, Arial, sans-serif';
+    ctx.fillText('AppADay 134 ' + '\u00b7' + ' ' + CARD_URL, SIZE / 2, SIZE - 74);
+
+    return canvas;
+  }
+
+  function downloadBlob(blob, name){
+    try{
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = name;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(function(){
+        if(a.parentNode){ a.parentNode.removeChild(a); }
+        URL.revokeObjectURL(url);
+      }, 1500);
+      return true;
+    }catch(e){ return false; }
+  }
+
+  function slugify(s){
+    return normalize(s).slice(0, 28) || 'anagram';
+  }
+
+  function shareCard(source, result){
+    try{
+      var canvas = drawCard(source, result);
+      var name = 'appaday-134-' + slugify(result) + '.png';
+      canvas.toBlob(function(blob){
+        if(!blob){ setStatus('The share image could not be created on this browser.', 'err'); return; }
+        var file = null;
+        try{ file = new File([blob], name, { type: 'image/png' }); }
+        catch(e){ file = null; }
+        var canNative = false;
+        try{ canNative = !!(file && navigator.canShare && navigator.canShare({ files: [file] }) && navigator.share); }
+        catch(e2){ canNative = false; }
+        if(canNative){
+          navigator.share({ files: [file], title: 'Anagram Alchemy' }).then(function(){
+            setStatus('Share card sent.', '');
+          }).catch(function(){
+            downloadBlob(blob, name);
+          });
+        } else {
+          if(downloadBlob(blob, name)){ setStatus('Share card downloaded.', ''); }
+          else { setStatus('The share image could not be saved.', 'err'); }
+        }
+      }, 'image/png');
+    }catch(err){
+      setStatus('The share image could not be created.', 'err');
+    }
+  }
+
+  /* ---------- optional webm capture ---------- */
+
+  function pickMime(){
+    try{
+      if(typeof MediaRecorder === 'undefined'){ return ''; }
+      if(MediaRecorder.isTypeSupported('video/webm;codecs=vp9')){ return 'video/webm;codecs=vp9'; }
+      if(MediaRecorder.isTypeSupported('video/webm;codecs=vp8')){ return 'video/webm;codecs=vp8'; }
+      return '';
+    }catch(e){ return ''; }
+  }
+  function webmSupported(){ return pickMime() !== ''; }
+
+  function layoutFor(ctx, text, size, width){
+    ctx.font = '700 ' + size + 'px ' + SERIF;
+    var chars = [], total = 0, i;
+    for(i = 0; i < text.length; i++){
+      var ch = text.charAt(i);
+      var w = ctx.measureText(ch).width;
+      chars.push({ ch: ch, w: w, letter: isLetter(ch) });
+      total += w;
+    }
+    var x = (width - total) / 2;
+    for(i = 0; i < chars.length; i++){
+      chars[i].x = x;
+      x += chars[i].w;
+    }
+    return chars;
+  }
+
+  function mapLetters(fromChars, toChars){
+    var buckets = {}, i;
+    for(i = 0; i < fromChars.length; i++){
+      if(!fromChars[i].letter){ continue; }
+      var c = fromChars[i].ch.toLowerCase();
+      if(!buckets[c]){ buckets[c] = []; }
+      buckets[c].push(fromChars[i]);
+    }
+    var pairs = [];
+    for(i = 0; i < toChars.length; i++){
+      if(!toChars[i].letter){ continue; }
+      var list = buckets[toChars[i].ch.toLowerCase()];
+      if(!list || !list.length){ return null; }
+      pairs.push({ from: list.shift(), to: toChars[i] });
+    }
+    return pairs;
+  }
+
+  function recordMorph(source, result){
+    var mime = pickMime();
+    var btn = $('vidBtn');
+    if(!mime){ if(btn){ hide(btn); } return; }
+    var modal = $('vidModal');
+    var canvas = $('vidCanvas');
+    var note = $('vidNote');
+    try{
+      var W = 720, H = 720;
+      var ctx = canvas.getContext('2d');
+      var size = 74, src, tgt;
+      for(; size >= 26; size -= 2){
+        src = layoutFor(ctx, source, size, W);
+        tgt = layoutFor(ctx, result, size, W);
+        var sw = src.length ? (src[src.length - 1].x + src[src.length - 1].w - src[0].x) : 0;
+        var tw = tgt.length ? (tgt[tgt.length - 1].x + tgt[tgt.length - 1].w - tgt[0].x) : 0;
+        if(sw <= W - 80 && tw <= W - 80){ break; }
+      }
+      var pairs = mapLetters(src, tgt);
+      if(!pairs){ setStatus('That phrase cannot be recorded.', 'warn'); return; }
+
+      show(modal);
+      note.textContent = 'Recording. Keep this panel open.';
+
+      var stream = canvas.captureStream(30);
+      var rec = new MediaRecorder(stream, { mimeType: mime });
+      var chunks = [];
+      rec.ondataavailable = function(ev){ if(ev.data && ev.data.size){ chunks.push(ev.data); } };
+      rec.onstop = function(){
+        try{
+          var blob = new Blob(chunks, { type: mime.split(';')[0] });
+          downloadBlob(blob, 'appaday-134-' + slugify(result) + '.webm');
+          note.textContent = 'Saved. Close this panel when you are done.';
+        }catch(e){ note.textContent = 'The recording could not be saved.'; }
+      };
+
+      var HOLD = 450, MOVE = 2400, TOTAL = HOLD * 2 + MOVE;
+      var start = 0;
+      var ease = function(t){ return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; };
+      var baseY = H / 2 + size * 0.34;
+
+      var frame = function(now){
+        if(!start){ start = now; }
+        var elapsed = now - start;
+        var raw = (elapsed - HOLD) / MOVE;
+        if(raw < 0){ raw = 0; }
+        if(raw > 1){ raw = 1; }
+        var t = ease(raw);
+
+        var grad = ctx.createLinearGradient(0, 0, W, H);
+        grad.addColorStop(0, '#161b27');
+        grad.addColorStop(1, '#0a0c11');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, W, H);
+
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'alphabetic';
+        ctx.font = '700 ' + size + 'px ' + SERIF;
+
+        var i;
+        ctx.globalAlpha = Math.max(0, 1 - raw * 2.5);
+        ctx.fillStyle = '#99a2b4';
+        for(i = 0; i < src.length; i++){
+          if(!src[i].letter){ ctx.fillText(src[i].ch, src[i].x, baseY); }
+        }
+        ctx.globalAlpha = Math.max(0, (raw - 0.6) * 2.5);
+        for(i = 0; i < tgt.length; i++){
+          if(!tgt[i].letter){ ctx.fillText(tgt[i].ch, tgt[i].x, baseY); }
+        }
+
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = '#f0d79a';
+        for(i = 0; i < pairs.length; i++){
+          var p = pairs[i];
+          var x = p.from.x + (p.to.x - p.from.x) * t;
+          ctx.fillText(p.to.ch, x, baseY);
+        }
+
+        ctx.font = '500 20px Inter, Helvetica, Arial, sans-serif';
+        ctx.fillStyle = '#7f8899';
+        ctx.textAlign = 'center';
+        ctx.fillText('AppADay 134 ' + '\u00b7' + ' ' + CARD_URL, W / 2, H - 46);
+
+        if(elapsed < TOTAL){ requestAnimationFrame(frame); }
+        else {
+          try{ rec.stop(); }catch(e){ /* already stopped */ }
+        }
+      };
+
+      rec.start();
+      requestAnimationFrame(frame);
+    }catch(err){
+      if(btn){ hide(btn); }
+      hide(modal);
+      setStatus('Recording is not available on this browser.', 'warn');
+    }
+  }
+
+  /* ---------- main flow ---------- */
+
+  var srcInput = $('src');
+  var goBtn = $('go');
+
+  function run(){
+    var source = srcInput.value.replace(/\s+/g, ' ').trim();
+    if(!source){ setStatus('Enter a name or phrase first.', 'warn'); srcInput.focus(); return; }
+    if(normalize(source).length < 4){ setStatus('Use at least four letters.', 'warn'); return; }
+    var settings = loadSettings();
+    if(!settings.apiKey){ setStatus('Add your Anthropic API key in Settings first.', 'warn'); openSettings(); return; }
+
+    currentSource = source;
+    writeText(K_LAST, source);
+    renderStage(source);
+    stage.classList.remove('idle');
+    survivors = [];
+    renderResults();
+    goBtn.disabled = true;
+    setStatus('Working. Asking Claude for candidates...', '');
+
+    askClaude(firstPrompt(source)).then(function(candidates){
+      setStatus('Verifying ' + candidates.length + ' candidates letter by letter...', '');
+      var pass1 = verifyBatch(source, candidates, []);
+      if(pass1.accepted.length >= 5){
+        survivors = pass1.accepted;
+        finish(source);
+        return null;
+      }
+      var rejects = [];
+      for(var i = 0; i < pass1.failures.length && rejects.length < 8; i++){
+        if(pass1.failures[i].reason === 'letter-mismatch'){ rejects.push(pass1.failures[i].phrase); }
+      }
+      if(rejects.length < 8){
+        for(var j = 0; j < pass1.failures.length && rejects.length < 8; j++){
+          if(rejects.indexOf(pass1.failures[j].phrase) === -1){ rejects.push(pass1.failures[j].phrase); }
+        }
+      }
+      setStatus('Only ' + pass1.accepted.length + ' survived. Asking once more...', '');
+      return askClaude(topUpPrompt(source, pass1.accepted, rejects)).then(function(more){
+        var pass2 = verifyBatch(source, more, pass1.accepted);
+        survivors = pass1.accepted.concat(pass2.accepted);
+        finish(source);
+        return null;
+      });
+    }).catch(function(err){
+      setStatus(err && err.message ? err.message : 'Something went wrong.', 'err');
+    }).then(function(){
+      goBtn.disabled = false;
+    });
+  }
+
+  function finish(source){
+    renderResults();
+    if(!survivors.length){
+      setStatus('No verified anagram could be formed from those letters. Edit the phrase and try again.', 'warn');
+      return;
+    }
+    setStatus(survivors.length + ' verified ' + (survivors.length === 1 ? 'anagram' : 'anagrams') + ' for ' + source + '.', '');
+  }
+
+  /* ---------- settings modal ---------- */
+
+  var settingsModal = $('settings');
+  function openSettings(){
+    var s = loadSettings();
+    $('apiKey').value = s.apiKey;
+    $('sessionName').value = s.sessionName;
+    show(settingsModal);
+    $('apiKey').focus();
+  }
+  function closeSettings(){ hide(settingsModal); }
+
+  $('gear').addEventListener('click', openSettings);
+  $('setClose').addEventListener('click', closeSettings);
+  $('setSave').addEventListener('click', function(){
+    var ok = saveSettings({ apiKey: $('apiKey').value.trim(), sessionName: $('sessionName').value.trim() });
+    closeSettings();
+    setStatus(ok ? 'Settings saved.' : 'Settings could not be saved in this browser.', ok ? '' : 'err');
+  });
+
+  $('vidClose').addEventListener('click', function(){ hide($('vidModal')); });
+
+  $('vidBtn').addEventListener('click', function(){
+    if(!survivors.length || !currentSource){ return; }
+    recordMorph(currentSource, survivors[0]);
+  });
+
+  /* ---------- destructive two step confirm ---------- */
+
+  var clearArmed = false, clearTimer = null;
+  clearBtn.addEventListener('click', function(){
+    if(!clearArmed){
+      clearArmed = true;
+      clearBtn.textContent = 'Tap again to clear';
+      clearTimer = setTimeout(function(){
+        clearArmed = false;
+        clearBtn.textContent = 'Clear favorites';
+      }, 4000);
+      return;
+    }
+    if(clearTimer){ clearTimeout(clearTimer); clearTimer = null; }
+    clearArmed = false;
+    clearBtn.textContent = 'Clear favorites';
+    saveFavs([]);
+    renderFavs();
+    syncResultPressedStates();
+    setStatus('Favorites cleared.', '');
+  });
+
+  goBtn.addEventListener('click', run);
+  srcInput.addEventListener('keydown', function(ev){
+    if(ev.key === 'Enter'){ ev.preventDefault(); run(); }
+  });
+
+  document.addEventListener('keydown', function(ev){
+    if(ev.key === 'Escape'){
+      hide(settingsModal);
+      hide($('vidModal'));
+    }
+  });
+
+  /* ---------- boot ---------- */
+
+  selfTest();
+  renderFavs();
+  renderResults();
+
+  var last = readText(K_LAST, '');
+  if(last){
+    srcInput.value = last;
+    renderStage(last);
+    currentSource = last;
+  } else {
+    renderStage('Anagram Alchemy');
+  }
+
+})();
+</script>
+</body>
+</html>
