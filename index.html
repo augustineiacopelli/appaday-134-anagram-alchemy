@@ -244,13 +244,14 @@ h2 .count{font-family:Inter,sans-serif;font-size:12px;font-weight:500;color:var(
 .tools{display:flex;flex-wrap:wrap;gap:9px;margin-top:12px;}
 .hidden{display:none !important;}
 .modal{
-  position:absolute;
+  position:fixed;
   inset:0;
   z-index:20;
   display:flex;
   align-items:flex-start;
   justify-content:center;
   padding:22px 14px 40px;
+  overflow-y:auto;
   background:rgba(6,8,12,.82);
 }
 .modal .card{
@@ -730,6 +731,33 @@ footer a{
     return out.join('\n');
   }
 
+  function flatten(list){
+    var out = [], i, k;
+    for(i = 0; i < list.length; i++){
+      var item = list[i];
+      if(typeof item === 'string'){ out.push(item); continue; }
+      if(Object.prototype.toString.call(item) === '[object Array]'){
+        var inner = flatten(item);
+        for(k = 0; k < inner.length; k++){ out.push(inner[k]); }
+        continue;
+      }
+      if(item && typeof item === 'object'){
+        var keys = ['phrase', 'anagram', 'text', 'result', 'value', 'candidate'];
+        var got = '';
+        for(k = 0; k < keys.length; k++){
+          if(typeof item[keys[k]] === 'string'){ got = item[keys[k]]; break; }
+        }
+        if(!got){
+          for(k in item){
+            if(Object.prototype.hasOwnProperty.call(item, k) && typeof item[k] === 'string'){ got = item[k]; break; }
+          }
+        }
+        if(got){ out.push(got); }
+      }
+    }
+    return out;
+  }
+
   function parseList(text){
     var cleaned = String(text || '').replace(/```[a-zA-Z]*/g, '').replace(/```/g, '').trim();
     var open = cleaned.indexOf('[');
@@ -738,7 +766,7 @@ footer a{
       var slice = cleaned.substring(open, close + 1);
       try{
         var parsed = JSON.parse(slice);
-        if(Object.prototype.toString.call(parsed) === '[object Array]'){ return parsed; }
+        if(Object.prototype.toString.call(parsed) === '[object Array]'){ return flatten(parsed); }
       }catch(e){ /* fall through to line parsing */ }
     }
     var lines = cleaned.split('\n');
@@ -754,6 +782,8 @@ footer a{
     }
     return out;
   }
+
+  var lastRaw = '';
 
   function askClaude(promptText){
     var s = loadSettings();
@@ -779,7 +809,15 @@ footer a{
       }
       return res.json();
     }).then(function(data){
-      return parseList(extractText(data));
+      var raw = extractText(data);
+      var list = parseList(raw);
+      lastRaw = raw;
+      if(window.console && console.log){
+        console.log('[134] stop_reason:', data ? data.stop_reason : '(none)');
+        console.log('[134] raw reply:\n' + raw);
+        console.log('[134] parsed candidates (' + list.length + '):', list);
+      }
+      return list;
     });
   }
 
@@ -1214,6 +1252,17 @@ footer a{
   var srcInput = $('src');
   var goBtn = $('go');
 
+  function summarize(failures){
+    var counts = {}, order = [], i, out = [];
+    for(i = 0; i < failures.length; i++){
+      var r = failures[i].reason;
+      if(!counts[r]){ counts[r] = 0; order.push(r); }
+      counts[r]++;
+    }
+    for(i = 0; i < order.length; i++){ out.push(counts[order[i]] + ' ' + order[i]); }
+    return out.join(', ');
+  }
+
   function run(){
     var source = srcInput.value.replace(/\s+/g, ' ').trim();
     if(!source){ setStatus('Enter a name or phrase first.', 'warn'); srcInput.focus(); return; }
@@ -1230,28 +1279,35 @@ footer a{
     goBtn.disabled = true;
     setStatus('Working. Asking Claude for candidates...', '');
 
+    var seenCount = 0;
+    var allFailures = [];
+
     askClaude(firstPrompt(source)).then(function(candidates){
+      seenCount = candidates.length;
       setStatus('Verifying ' + candidates.length + ' candidates letter by letter...', '');
       var pass1 = verifyBatch(source, candidates, []);
+      allFailures = pass1.failures.slice();
+      if(window.console && console.log){ console.log('[134] pass 1 failures:', pass1.failures); }
       if(pass1.accepted.length >= 5){
         survivors = pass1.accepted;
-        finish(source);
+        finish(source, seenCount, allFailures);
         return null;
       }
-      var rejects = [];
-      for(var i = 0; i < pass1.failures.length && rejects.length < 8; i++){
+      var rejects = [], i, j;
+      for(i = 0; i < pass1.failures.length && rejects.length < 8; i++){
         if(pass1.failures[i].reason === 'letter-mismatch'){ rejects.push(pass1.failures[i].phrase); }
       }
-      if(rejects.length < 8){
-        for(var j = 0; j < pass1.failures.length && rejects.length < 8; j++){
-          if(rejects.indexOf(pass1.failures[j].phrase) === -1){ rejects.push(pass1.failures[j].phrase); }
-        }
+      for(j = 0; j < pass1.failures.length && rejects.length < 8; j++){
+        if(rejects.indexOf(pass1.failures[j].phrase) === -1){ rejects.push(pass1.failures[j].phrase); }
       }
       setStatus('Only ' + pass1.accepted.length + ' survived. Asking once more...', '');
       return askClaude(topUpPrompt(source, pass1.accepted, rejects)).then(function(more){
+        seenCount += more.length;
         var pass2 = verifyBatch(source, more, pass1.accepted);
+        allFailures = allFailures.concat(pass2.failures);
+        if(window.console && console.log){ console.log('[134] pass 2 failures:', pass2.failures); }
         survivors = pass1.accepted.concat(pass2.accepted);
-        finish(source);
+        finish(source, seenCount, allFailures);
         return null;
       });
     }).catch(function(err){
@@ -1261,13 +1317,17 @@ footer a{
     });
   }
 
-  function finish(source){
+  function finish(source, seenCount, failures){
     renderResults();
-    if(!survivors.length){
-      setStatus('No verified anagram could be formed from those letters. Edit the phrase and try again.', 'warn');
+    if(survivors.length){
+      setStatus(survivors.length + ' verified ' + (survivors.length === 1 ? 'anagram' : 'anagrams') + ' for ' + source + '.', '');
       return;
     }
-    setStatus(survivors.length + ' verified ' + (survivors.length === 1 ? 'anagram' : 'anagrams') + ' for ' + source + '.', '');
+    if(!seenCount){
+      setStatus('Claude replied but no candidates could be read from it. Open the browser console for the raw reply.', 'err');
+      return;
+    }
+    setStatus(seenCount + ' candidates came back and none survived the letter check (' + summarize(failures) + '). Console has the raw reply.', 'warn');
   }
 
   /* ---------- settings modal ---------- */
