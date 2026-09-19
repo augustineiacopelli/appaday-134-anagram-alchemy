@@ -386,7 +386,7 @@ footer a{
 
   var CLAUDE_MODEL = 'claude-sonnet-5';
   var API_URL = 'https://api.anthropic.com/v1/messages';
-  var MAX_TOKENS = 1200;
+  var MAX_TOKENS = 1600;
 
   var K_SETTINGS = 'appaday-134-settings';
   var K_FAVS = 'appaday-134-favorites';
@@ -758,6 +758,16 @@ footer a{
     return out;
   }
 
+  function blockTypes(data){
+    var out = [];
+    if(data && Object.prototype.toString.call(data.content) === '[object Array]'){
+      for(var i = 0; i < data.content.length; i++){
+        out.push(data.content[i] ? data.content[i].type : '(null)');
+      }
+    }
+    return out.join(', ') || '(none)';
+  }
+
   function parseList(text){
     var cleaned = String(text || '').replace(/```[a-zA-Z]*/g, '').replace(/```/g, '').trim();
     var open = cleaned.indexOf('[');
@@ -785,22 +795,42 @@ footer a{
 
   var lastRaw = '';
 
-  function askClaude(promptText){
-    var s = loadSettings();
-    if(!s.apiKey){ return Promise.reject(new Error('Add your Anthropic API key in Settings first.')); }
+  var allowThinkingFlag = true;
+
+  function postMessages(apiKey, promptText, withThinkingFlag, maxTokens){
+    var payload = {
+      model: CLAUDE_MODEL,
+      max_tokens: maxTokens,
+      messages: [{ role: 'user', content: promptText }]
+    };
+    if(withThinkingFlag){ payload.thinking = { type: 'disabled' }; }
     return fetch(API_URL, {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
-        'x-api-key': s.apiKey,
+        'x-api-key': apiKey,
         'anthropic-version': '2023-06-01',
         'anthropic-dangerous-direct-browser-access': 'true'
       },
-      body: JSON.stringify({
-        model: CLAUDE_MODEL,
-        max_tokens: MAX_TOKENS,
-        messages: [{ role: 'user', content: promptText }]
-      })
+      body: JSON.stringify(payload)
+    });
+  }
+
+  function askClaude(promptText){
+    var s = loadSettings();
+    if(!s.apiKey){ return Promise.reject(new Error('Add your Anthropic API key in Settings first.')); }
+    return postMessages(s.apiKey, promptText, allowThinkingFlag, MAX_TOKENS).then(function(res){
+      if(res.status === 400 && allowThinkingFlag){
+        return res.text().then(function(body){
+          if(String(body).indexOf('thinking') === -1){
+            throw new Error('Request failed (400). ' + String(body).slice(0, 160));
+          }
+          allowThinkingFlag = false;
+          if(window.console && console.log){ console.log('[134] thinking flag rejected, retrying with a larger budget'); }
+          return postMessages(s.apiKey, promptText, false, 8000);
+        });
+      }
+      return res;
     }).then(function(res){
       if(!res.ok){
         return res.text().then(function(body){
@@ -812,7 +842,11 @@ footer a{
       var raw = extractText(data);
       var list = parseList(raw);
       lastRaw = raw;
+      if(!raw && data && data.stop_reason === 'max_tokens'){
+        throw new Error('The model used its whole token budget before answering. Reload the page and try again.');
+      }
       if(window.console && console.log){
+        console.log('[134] block types:', blockTypes(data));
         console.log('[134] stop_reason:', data ? data.stop_reason : '(none)');
         console.log('[134] raw reply:\n' + raw);
         console.log('[134] parsed candidates (' + list.length + '):', list);
