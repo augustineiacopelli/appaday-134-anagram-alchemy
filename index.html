@@ -842,14 +842,15 @@ footer a{
       var raw = extractText(data);
       var list = parseList(raw);
       lastRaw = raw;
-      if(!raw && data && data.stop_reason === 'max_tokens'){
-        throw new Error('The model used its whole token budget before answering. Reload the page and try again.');
-      }
       if(window.console && console.log){
+        console.log('[134] build: thinking-disabled');
         console.log('[134] block types:', blockTypes(data));
         console.log('[134] stop_reason:', data ? data.stop_reason : '(none)');
         console.log('[134] raw reply:\n' + raw);
         console.log('[134] parsed candidates (' + list.length + '):', list);
+      }
+      if(!raw && data && data.stop_reason === 'max_tokens'){
+        throw new Error('The model used its whole token budget before answering. Hard reload the page, then try again.');
       }
       return list;
     });
