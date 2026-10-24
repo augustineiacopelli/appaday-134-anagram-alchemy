@@ -10,6 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <link rel="manifest" href="https://augustineiacopelli.github.io/appaday/manifests/134.webmanifest">
 <script src="https://augustineiacopelli.github.io/appaday/save.js" defer></script>
+<script src="https://augustineiacopelli.github.io/appaday/keys.js" data-app="134" data-legacy-key="appaday-134-settings:apiKey" data-accent="#A63D9E" defer></script>
 <title>Anagram Alchemy | AppADay 134</title>
 <meta name="description" content="Enter a name or phrase, let Claude propose anagrams, then verify every candidate locally letter by letter and watch the survivors morph into place.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -360,11 +361,7 @@ footer a{
 <div class="modal hidden" id="settings" role="dialog" aria-modal="true" aria-labelledby="setTitle">
   <div class="card">
     <h3 id="setTitle">Settings</h3>
-    <p>Your key stays in this browser only. It is never shown on the main screen and never leaves this device except in requests to Anthropic.</p>
-    <label>
-      <span class="field">Anthropic API key</span>
-      <input type="password" id="apiKey" autocomplete="off" spellcheck="false" placeholder="sk-ant-...">
-    </label>
+    <div id="keyMount"><p>The key manager is loading. If this stays, check your connection and reload.</p></div>
     <label>
       <span class="field">Session name (optional)</span>
       <input type="text" id="sessionName" autocomplete="off" placeholder="Shown on share cards">
@@ -432,8 +429,7 @@ footer a{
   function loadSettings(){
     var s = readJSON(K_SETTINGS, {});
     if(!s || typeof s !== 'object'){ s = {}; }
-    return { apiKey: typeof s.apiKey === 'string' ? s.apiKey : '',
-             sessionName: typeof s.sessionName === 'string' ? s.sessionName : '' };
+    return { sessionName: typeof s.sessionName === 'string' ? s.sessionName : '' };
   }
   function saveSettings(s){ return writeJSON(K_SETTINGS, s); }
 
@@ -824,9 +820,15 @@ footer a{
   }
 
   function askClaude(promptText){
-    var s = loadSettings();
-    if(!s.apiKey){ return Promise.reject(new Error('Add your Anthropic API key in Settings first.')); }
-    return postMessages(s.apiKey, promptText, allowThinkingFlag, MAX_TOKENS).then(function(res){
+    if(!window.AppKeys){ return Promise.reject(new Error('The key manager did not load. Check your connection and reload.')); }
+    return window.AppKeys.get().then(function(apiKey){
+      if(!apiKey){ throw new Error('Add your Claude API key with the gear button first.'); }
+      return askClaudeKeyed(apiKey, promptText);
+    });
+  }
+
+  function askClaudeKeyed(apiKey, promptText){
+    return postMessages(apiKey, promptText, allowThinkingFlag, MAX_TOKENS).then(function(res){
       if(res.status === 400 && allowThinkingFlag){
         return res.text().then(function(body){
           if(String(body).indexOf('thinking') === -1){
@@ -834,7 +836,7 @@ footer a{
           }
           allowThinkingFlag = false;
           if(window.console && console.log){ console.log('[134] thinking flag rejected, retrying with a larger budget'); }
-          return postMessages(s.apiKey, promptText, false, 8000);
+          return postMessages(apiKey, promptText, false, 8000);
         });
       }
       return res;
@@ -1309,8 +1311,8 @@ footer a{
     var source = srcInput.value.replace(/\s+/g, ' ').trim();
     if(!source){ setStatus('Enter a name or phrase first.', 'warn'); srcInput.focus(); return; }
     if(normalize(source).length < 4){ setStatus('Use at least four letters.', 'warn'); return; }
-    var settings = loadSettings();
-    if(!settings.apiKey){ setStatus('Add your Anthropic API key in Settings first.', 'warn'); openSettings(); return; }
+    if(!window.AppKeys){ setStatus('The key manager did not load. Check your connection and reload.', 'warn'); return; }
+    if(!window.AppKeys.has()){ window.AppKeys.get(); setStatus('Add your Claude API key, then tap again.', 'warn'); return; }
 
     currentSource = source;
     writeText(K_LAST, source);
@@ -1377,17 +1379,16 @@ footer a{
   var settingsModal = $('settings');
   function openSettings(){
     var s = loadSettings();
-    $('apiKey').value = s.apiKey;
+    if(window.AppKeys){ window.AppKeys.mountSettings($('keyMount')); }
     $('sessionName').value = s.sessionName;
     show(settingsModal);
-    $('apiKey').focus();
   }
   function closeSettings(){ hide(settingsModal); }
 
   $('gear').addEventListener('click', openSettings);
   $('setClose').addEventListener('click', closeSettings);
   $('setSave').addEventListener('click', function(){
-    var ok = saveSettings({ apiKey: $('apiKey').value.trim(), sessionName: $('sessionName').value.trim() });
+    var ok = saveSettings({ sessionName: $('sessionName').value.trim() });
     closeSettings();
     setStatus(ok ? 'Settings saved.' : 'Settings could not be saved in this browser.', ok ? '' : 'err');
   });
