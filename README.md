@@ -38,7 +38,7 @@ Open the gear in the header and paste an Anthropic API key. The key and the opti
 
 ## Stack
 
-One self-contained `index.html` with inline CSS and JavaScript. No frameworks, no build step, no dependencies beyond a Google Fonts link. Model string `claude-sonnet-5`.
+One self-contained `index.html` with inline CSS and JavaScript. No frameworks, no build step, no dependencies beyond a Google Fonts link. The model is the current Claude Sonnet model, set by the portal's models.js.
 
 ## Storage keys
 
